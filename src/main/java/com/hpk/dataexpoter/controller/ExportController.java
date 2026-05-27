@@ -1,6 +1,5 @@
 package com.hpk.dataexpoter.controller;
 
-import com.alibaba.excel.EasyExcel;
 import com.hpk.dataexpoter.model.Order;
 import com.hpk.dataexpoter.service.ExportService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -57,6 +56,16 @@ public class ExportController {
         String filename = URLEncoder.encode("订单信息_流式", StandardCharsets.UTF_8);
         response.setHeader("Content-Disposition", "attachment;filename=" + filename + ".xlsx");
 
-        exportService.exportOrdersStream(response.getOutputStream());
+        exportService.exportOrdersStreamParallel(response.getOutputStream());
+    }
+
+    @GetMapping("/export/stream/serial")
+    public void exportExcelStreamSerial(HttpServletResponse response) throws IOException, ExecutionException, InterruptedException {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String filename = URLEncoder.encode("订单信息_流式", StandardCharsets.UTF_8);
+        response.setHeader("Content-Disposition", "attachment;filename=" + filename + ".xlsx");
+
+        exportService.exportOrdersStreamSerial(response.getOutputStream());
     }
 }

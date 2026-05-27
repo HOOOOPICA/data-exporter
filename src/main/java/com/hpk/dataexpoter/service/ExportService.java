@@ -59,9 +59,6 @@ public class ExportService {
     }
 
     public List<Order> queryAllOrdersParallel() throws ExecutionException, InterruptedException {
-        // 定义： 一个任务，每次查几条、一共查几条
-        // 用 futures 存储任务
-        // 等所有任务完成，返回结果
         int pageSize = 1000;
         int totalCount = 50000;
         int totalPages = totalCount / pageSize;
@@ -93,6 +90,12 @@ public class ExportService {
         return result;
     }
 
+    /**
+     * 多线程查询，一次性加载到内存再写入excel
+     * @param outputStream
+     * @throws ExecutionException
+     * @throws InterruptedException
+     */
     public void exportOnce(OutputStream outputStream) throws ExecutionException, InterruptedException {
         long queryStart = System.currentTimeMillis();
         List<Order> orders = this.queryAllOrdersParallel();
@@ -107,8 +110,13 @@ public class ExportService {
         System.out.println("[exportExcel] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
     }
 
-    // 流式写入： 多线程版
-    public void exportOrdersStream(OutputStream outputStream) throws ExecutionException, InterruptedException {
+    /**
+     * 多线程查询，流式写入excel
+     * @param outputStream
+     * @throws ExecutionException
+     * @throws InterruptedException
+     */
+    public void exportOrdersStreamParallel(OutputStream outputStream) throws ExecutionException, InterruptedException {
         int pageSize = 1000;
         int totalPages = 50;
         int groupSize = Runtime.getRuntime().availableProcessors() * 2;
@@ -145,6 +153,37 @@ public class ExportService {
         }
         excelWriter.finish();
 
-        System.out.println("[exportOrdersStream] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
+        System.out.println("[exportOrdersStreamParallel] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
+    }
+
+    /**
+     * 串行查询，流式写入excel
+     * @param outputStream 输出流
+     */
+    public void exportOrdersStreamSerial(OutputStream outputStream){
+        int pageSize = 1000;
+        int totalRecords = 50000;
+        int totalPages = totalRecords / pageSize;
+        int pageNum = 1;
+        long queryMs = 0;
+        long writeMs = 0;
+
+        ExcelWriter excelWriter = EasyExcel.write(outputStream, Order.class).build();
+        WriteSheet writeSheet = EasyExcel.writerSheet("订单数据").build();
+        while(pageNum <= totalPages){
+            long queryStart = System.currentTimeMillis();
+            Page<Order> page = orderMapper.selectPage(new Page<>(pageNum, pageSize),null);
+            queryMs += System.currentTimeMillis() - queryStart;
+
+            // 写入文件
+            long writeStart = System.currentTimeMillis();
+            excelWriter.write(page.getRecords(), writeSheet);
+            writeMs += System.currentTimeMillis() - writeStart;
+            pageNum ++;
+        }
+
+        excelWriter.finish();
+
+        System.out.println("[exportOrdersStreamSerial] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
     }
 }
