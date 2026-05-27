@@ -15,13 +15,15 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-
-        // 先检查表里有没有数据
-        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders", Long.class);
-
-        if (count != null && count > 0) {
-            System.out.println("数据已存在（" + count + "条），跳过初始化");
-            return;  // 有数据就直接退出，不重复插入
+        if (ordersTableExists()) {
+            Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM orders", Long.class);
+            if (count != null && count > 0) {
+                System.out.println("数据已存在（" + count + "条），跳过初始化");
+                return;
+            }
+        } else {
+            System.out.println("orders 表不存在，正在创建表结构...");
+            createOrdersTable();
         }
 
         System.out.println("开始生成测试数据...");
@@ -40,5 +42,26 @@ public class DataInitializer implements CommandLineRunner {
                 batchData
         );
         System.out.println("测试数据生成完毕！共50000条");
+    }
+
+    private boolean ordersTableExists() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES " +
+                        "WHERE TABLE_SCHEMA = CURRENT_SCHEMA() AND TABLE_NAME = 'ORDERS'",
+                Long.class);
+        return count != null && count > 0;
+    }
+
+    private void createOrdersTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE orders (
+                    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    order_no      VARCHAR(32)    NOT NULL,
+                    customer_name VARCHAR(64)    NOT NULL,
+                    amount        DECIMAL(10, 2) NOT NULL,
+                    status        TINYINT        NOT NULL DEFAULT 0,
+                    created_at    TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
     }
 }

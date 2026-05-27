@@ -1,11 +1,15 @@
 package com.hpk.dataexpoter.service;
 
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.write.metadata.WriteSheet;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hpk.dataexpoter.mapper.OrderMapper;
 import com.hpk.dataexpoter.model.Order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -87,5 +91,60 @@ public class ExportService {
             result.addAll(future.get());
         }
         return result;
+    }
+
+    public void exportOnce(OutputStream outputStream) throws ExecutionException, InterruptedException {
+        long queryStart = System.currentTimeMillis();
+        List<Order> orders = this.queryAllOrdersParallel();
+        long queryMs = System.currentTimeMillis() - queryStart;
+
+        long writeStart = System.currentTimeMillis();
+        EasyExcel.write(outputStream, Order.class)
+                .sheet("订单数据")
+                .doWrite(orders);
+        long writeMs = System.currentTimeMillis() - writeStart;
+
+        System.out.println("[exportExcel] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
+    }
+
+    // 流式写入： 多线程版
+    public void exportOrdersStream(OutputStream outputStream) throws ExecutionException, InterruptedException {
+        int pageSize = 1000;
+        int totalPages = 50;
+        int groupSize = Runtime.getRuntime().availableProcessors() * 2;
+        long queryMs = 0;
+        long writeMs = 0;
+
+        ExcelWriter excelWriter = EasyExcel.write(outputStream, Order.class).build();
+        WriteSheet writeSheet = EasyExcel.writerSheet("订单数据").build();
+
+        for (int groupStart = 1; groupStart <= totalPages; groupStart += groupSize){
+            int groupEnd = Math.min(groupStart + groupSize - 1, totalPages);
+
+            List<Future<List<Order>>> futures = new ArrayList<>();
+            for (int pageNum = groupStart; pageNum <= groupEnd; pageNum ++){
+                final int currentPage = pageNum;
+                futures.add(threadPool.submit(() -> {
+                    Page<Order> page = orderMapper.selectPage(new Page<>(
+                            currentPage,
+                            pageSize
+                    ), null);
+                    return page.getRecords();
+                }));
+            }
+
+            for (Future<List<Order>> future : futures) {
+                long queryStart = System.currentTimeMillis();
+                List<Order> orders = future.get();
+                queryMs += System.currentTimeMillis() - queryStart;
+
+                long writeStart = System.currentTimeMillis();
+                excelWriter.write(orders, writeSheet);
+                writeMs += System.currentTimeMillis() - writeStart;
+            }
+        }
+        excelWriter.finish();
+
+        System.out.println("[exportOrdersStream] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
     }
 }

@@ -45,13 +45,18 @@ public class ExportController {
         String filename = URLEncoder.encode("订单信息", StandardCharsets.UTF_8);
         response.setHeader("Content-Disposition", "attachment;filename=" + filename + ".xlsx");
 
-        // 多线程查询
-        List<Order> orders = exportService.queryAllOrdersParallel();
-        EasyExcel.write(response.getOutputStream(), Order.class)
-                .sheet("订单数据")
-                .doWrite(orders);
+        exportService.exportOnce(response.getOutputStream());
     }
 
 
-    // todo 边读边写; 单线程版 vs 多线程版
+   // 边读边写
+    @GetMapping("/export/stream/parallel")
+    public void exportExcelStreamParallel(HttpServletResponse response) throws IOException, ExecutionException, InterruptedException {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String filename = URLEncoder.encode("订单信息_流式", StandardCharsets.UTF_8);
+        response.setHeader("Content-Disposition", "attachment;filename=" + filename + ".xlsx");
+
+        exportService.exportOrdersStream(response.getOutputStream());
+    }
 }
