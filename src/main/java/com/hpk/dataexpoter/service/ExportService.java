@@ -4,21 +4,34 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.hpk.dataexpoter.mapper.CustomerMapper;
 import com.hpk.dataexpoter.mapper.OrderMapper;
+import com.hpk.dataexpoter.mapper.ProductMapper;
+import com.hpk.dataexpoter.model.Customer;
 import com.hpk.dataexpoter.model.Order;
+import com.hpk.dataexpoter.model.Products;
+import com.hpk.dataexpoter.vo.OrderExportVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ExportService {
 
     @Autowired
     private OrderMapper orderMapper;
+
+    @Autowired
+    private CustomerMapper customerMapper;
+
+    @Autowired
+    private ProductMapper productMapper;
 
     // 创建线程池
     private final ExecutorService threadPool = new ThreadPoolExecutor(
@@ -185,5 +198,58 @@ public class ExportService {
         excelWriter.finish();
 
         System.out.println("[exportOrdersStreamSerial] 数据查询耗时: " + queryMs + " ms, 写入 Excel 耗时: " + writeMs + " ms, 合计: " + (queryMs + writeMs) + " ms");
+    }
+
+    /**
+     * 同时查三张表：订单、客户、产品
+     * 这种场景适合 CompletableFuture (●'◡'●)
+     * @param outputStream
+     * @throws ExecutionException
+     * @throws InterruptedException
+     */
+    public void exportOrdersWithDetails(OutputStream outputStream) throws ExecutionException, InterruptedException {
+        // 创建3个future，分别查询orders, customers,products
+        CompletableFuture<List<Order>> ordersFuture = CompletableFuture.supplyAsync(() ->
+            orderMapper.selectList(null), threadPool
+        );
+
+        CompletableFuture<List<Customer>> customersFuture = CompletableFuture.supplyAsync(() ->
+                customerMapper.selectList(null), threadPool
+        );
+
+        CompletableFuture<List<Products>> productsFuture = CompletableFuture.supplyAsync(() ->
+                productMapper.selectList(null), threadPool
+        );
+
+        // 等这三个任务都完成
+        CompletableFuture.allOf(ordersFuture, customersFuture, productsFuture).join();
+
+        // 取结果
+        List<Order> orders = ordersFuture.get();
+        List<Customer> customers = customersFuture.get();
+        List<Products> products = productsFuture.get();
+
+        // 处理数据： 把customer和products 映射到 order
+        Map<String, String> customerLevelMap = customers.stream()
+                .collect(Collectors.toMap(Customer::getCustomerName, Customer::getLevel));
+
+        Map<String, String> productNameMap = products.stream()
+                .collect(Collectors.toMap(Products::getOrderNo, Products::getProductName));
+
+        List<OrderExportVO> orderExportVOS = orders.stream().map(order -> {
+           OrderExportVO vo = new OrderExportVO();
+           vo.setOrderNo(order.getOrderNo());
+           vo.setCustomerName(order.getCustomerName());
+           vo.setCustomerLevel(customerLevelMap.get(order.getCustomerName()));
+           vo.setProductName(productNameMap.get(order.getOrderNo()));
+           vo.setAmount(order.getAmount());
+           vo.setStatus(order.getStatus());
+           vo.setCreatedAt(order.getCreatedAt());
+           return vo;
+        }).collect(Collectors.toList());
+        // 写excel
+        EasyExcel.write(outputStream, OrderExportVO.class)
+                .sheet("订单详情")
+                .doWrite(orderExportVOS);
     }
 }

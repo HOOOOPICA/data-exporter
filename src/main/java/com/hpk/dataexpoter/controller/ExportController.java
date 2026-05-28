@@ -115,4 +115,15 @@ public class ExportController {
         Files.copy(Paths.get(task.getFilePath()), response.getOutputStream());
     }
 
+
+    @GetMapping("/export/excel/detail")
+    public void exportExcelDetail(HttpServletResponse response) throws Exception {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String filename = URLEncoder.encode("订单详情", StandardCharsets.UTF_8);
+        response.setHeader("Content-Disposition", "attachment;filename=" + filename + ".xlsx");
+
+        exportService.exportOrdersWithDetails(response.getOutputStream());
+    }
+
 }
