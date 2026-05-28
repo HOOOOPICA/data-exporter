@@ -50,7 +50,7 @@ public class DataInitializer implements CommandLineRunner {
 
         System.out.println("开始生成 orders 测试数据...");
         List<Object[]> batchData = new ArrayList<>();
-        for (int i = 0; i < 50000; i++) {
+        for (int i = 1; i < 50000; i++) {
             batchData.add(new Object[]{
                     "ORD" + String.format("%08d", i),
                     "Client" + i,
@@ -75,7 +75,7 @@ public class DataInitializer implements CommandLineRunner {
 
         System.out.println("开始生成 customers 测试数据...");
         List<Object[]> batchData = new ArrayList<>();
-        for (int i = 0; i < 50000; i++) {
+        for (int i = 1; i < 50000; i++) {
             batchData.add(new Object[]{
                     "Client" + i,
                     randomCustomerLevel()
@@ -112,13 +112,8 @@ public class DataInitializer implements CommandLineRunner {
 
         List<Object[]> batchData = new ArrayList<>();
         for (String orderNo : orderNos) {
-            int productCount = 1 + (int) (Math.random() * 3); // 每单 1~3 个商品
-            for (int j = 0; j < productCount; j++) {
-                batchData.add(new Object[]{
-                        orderNo,
-                        randomProductName()
-                });
-            }
+            // 每个orderNo 只插入1条产品
+            batchData.add(new Object[]{ orderNo, randomProductName() });
         }
 
         jdbcTemplate.batchUpdate(
