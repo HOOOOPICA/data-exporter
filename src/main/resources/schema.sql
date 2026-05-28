@@ -17,3 +17,15 @@ CREATE TABLE export_task (
                          created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 任务创建时间
                          finished_at   TIMESTAMP                         -- 任务完成时间（你说的export_time）
 );
+
+CREATE TABLE customers (
+                           id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+                           customer_name  VARCHAR(64) NOT NULL,
+                           level          VARCHAR(16) NOT NULL  -- NORMAL, VIP, SVIP
+);
+
+CREATE TABLE products (
+                          id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+                          order_no      VARCHAR(32) NOT NULL,
+                          product_name  VARCHAR(128) NOT NULL
+);
