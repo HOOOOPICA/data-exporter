@@ -45,7 +45,9 @@ public class AsyncExportService {
 
         try {
             // 确保目录存在
-            Files.createDirectory(Paths.get(EXPORT_DIR));
+            if(!Files.exists(Paths.get(EXPORT_DIR))){
+                Files.createDirectory(Paths.get(EXPORT_DIR));
+            }
 
             // 文件路径
             String filePath = EXPORT_DIR + "orders_" + taskId + ".xlsx";
@@ -62,7 +64,7 @@ public class AsyncExportService {
 
             // 成功，更新任务状态
         } catch (Exception e) {
-            exportTask.setStatus(ExportTaskStatus.SUCCESS);
+            exportTask.setStatus(ExportTaskStatus.FAILED);
             exportTask.setErrorMessage(e.getMessage());
             exportTask.setFinishedAt(LocalDateTime.now());
             exportTaskMapper.updateById(exportTask);
