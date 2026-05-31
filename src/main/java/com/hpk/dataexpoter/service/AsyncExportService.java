@@ -37,7 +37,7 @@ public class AsyncExportService {
         return task.getId();
     }
 
-    @Async("exportThreadPool")
+//    @Async("exportThreadPool")
     public void executeTask(Long taskId){
         ExportTask exportTask = exportTaskMapper.selectById(taskId);
         exportTask.setStatus(ExportTaskStatus.PROCESSING);

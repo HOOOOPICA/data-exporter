@@ -7,6 +7,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
+/**
+ * @deprecated 已引入RabbitMQ代替它工作，导出线程池光荣退休~
+ */
 @Configuration
 @EnableAsync
 public class AsyncConfig {

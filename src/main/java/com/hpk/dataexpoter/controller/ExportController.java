@@ -5,6 +5,7 @@ import com.hpk.dataexpoter.model.ExportTask;
 import com.hpk.dataexpoter.model.Order;
 import com.hpk.dataexpoter.service.AsyncExportService;
 import com.hpk.dataexpoter.service.ExportService;
+import com.hpk.dataexpoter.service.mq.ExportMessageProducer;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,9 @@ public class ExportController {
 
     @Autowired
     private AsyncExportService asyncExportService;
+
+    @Autowired
+    private ExportMessageProducer exportMessageProducer;
 
     @GetMapping("/queryAll")
     public List<Order> queryAll() throws InterruptedException {
@@ -92,7 +96,7 @@ public class ExportController {
         return result;
     }
 
-    @GetMapping("/async/{taskId}")
+        @GetMapping("/async/{taskId}")
     public ExportTask getTaskStatus(@PathVariable Long taskId) {
         return asyncExportService.getTask(taskId);
     }
@@ -124,6 +128,17 @@ public class ExportController {
         response.setHeader("Content-Disposition", "attachment;filename=" + filename + ".xlsx");
 
         exportService.exportOrdersWithDetails(response.getOutputStream());
+    }
+
+    @PostMapping("/export/async")
+    public Map<String, Object> submitExportTaskToQueue() {
+        Long taskId = asyncExportService.createTask();
+        exportMessageProducer.sendExportTask(taskId);  // 发消息，不直接执行
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("taskId", taskId);
+        result.put("message", "导出任务已提交，请稍后查询结果");
+        return result;
     }
 
 }
